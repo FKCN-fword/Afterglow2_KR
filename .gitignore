@@ -1,0 +1,6 @@
+lib/CommonLibSSE-NG/
+lib/SKSE-Menu-Framework-3-API/
+build/
+.xmake/
+*.pdb
+*.dll
