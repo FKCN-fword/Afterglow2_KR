@@ -21,15 +21,15 @@ jobs:
           git clone --branch ng --recurse-submodules https://github.com/alandtse/CommonLibVR.git lib/CommonLibSSE-NG
           cd lib/CommonLibSSE-NG
           git log -1 --format='CommonLibSSE-NG revision %H'
-          if git apply --check ../../commonlib-unk8c.patch; then
+          # commonlib-unk8c.patch removes an extra TESObjectREFR virtual (Unk_8C) that older ng revisions declare.
+          # Newer revisions no longer have it, so the patch is only needed (and only applies) when it is still there.
+          if grep -q "Unk_8C" include/RE/T/TESObjectREFR.h; then
+            echo "Unk_8C is still declared - applying commonlib-unk8c.patch"
             git apply ../../commonlib-unk8c.patch
-            echo "commonlib-unk8c.patch applied"
-          elif git apply --check --reverse ../../commonlib-unk8c.patch; then
-            echo "commonlib-unk8c.patch is already part of this revision"
           else
-            echo "::error::commonlib-unk8c.patch does not apply to this CommonLibSSE-NG revision"
-            exit 1
+            echo "No Unk_8C in TESObjectREFR.h - this revision does not need commonlib-unk8c.patch"
           fi
+          grep -n -B2 -A2 "ResetInventory" include/RE/T/TESObjectREFR.h
 
       - name: Get SKSE-Menu-Framework-3-API
         shell: bash
