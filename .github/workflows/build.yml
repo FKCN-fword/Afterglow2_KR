@@ -1,0 +1,54 @@
+name: Build Afterglow
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      # The CommonLibSSE-NG patch below is written with LF line endings; keep Windows runners from rewriting them.
+      - name: Disable CRLF conversion
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - name: Get CommonLibSSE-NG (alandtse ng branch)
+        shell: bash
+        run: |
+          git clone --branch ng --recurse-submodules https://github.com/alandtse/CommonLibVR.git lib/CommonLibSSE-NG
+          cd lib/CommonLibSSE-NG
+          git log -1 --format='CommonLibSSE-NG revision %H'
+          if git apply --check ../../commonlib-unk8c.patch; then
+            git apply ../../commonlib-unk8c.patch
+            echo "commonlib-unk8c.patch applied"
+          elif git apply --check --reverse ../../commonlib-unk8c.patch; then
+            echo "commonlib-unk8c.patch is already part of this revision"
+          else
+            echo "::error::commonlib-unk8c.patch does not apply to this CommonLibSSE-NG revision"
+            exit 1
+          fi
+
+      - name: Get SKSE-Menu-Framework-3-API
+        shell: bash
+        run: git clone --depth 1 https://github.com/QTR-Modding/SKSE-Menu-Framework-3-API.git lib/SKSE-Menu-Framework-3-API
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
+      - name: Configure
+        run: xmake f -y -m releasedbg --skyrim_vr=n
+
+      - name: Build
+        run: xmake build -y -v Afterglow
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Afterglow-dll
+          path: |
+            build/windows/x64/releasedbg/Afterglow.dll
+            build/windows/x64/releasedbg/Afterglow.pdb
+          if-no-files-found: error
