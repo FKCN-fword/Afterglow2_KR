@@ -3,6 +3,7 @@
 #include "Settings.h"
 
 #include "SKEE_IPluginInterface.h"
+#include "SkeeNatives.h"
 
 namespace AG::Skee
 {
@@ -63,30 +64,61 @@ namespace AG::Skee
 		}
 	}
 
+	namespace
+	{
+		void LoadSlots()
+		{
+			g_slots[static_cast<std::size_t>(Area::Body)] = ReadIniInt("Overlays/Body", 6);
+			g_slots[static_cast<std::size_t>(Area::Hands)] = ReadIniInt("Overlays/Hands", 3);
+			g_slots[static_cast<std::size_t>(Area::Feet)] = ReadIniInt("Overlays/Feet", 3);
+			g_slots[static_cast<std::size_t>(Area::Face)] = ReadIniInt("Overlays/Face", 3);
+		}
+	}
+
 	bool Init()
 	{
 		InterfaceExchangeMessage msg;
 		SKSE::GetMessagingInterface()->Dispatch(InterfaceExchangeMessage::kMessage_ExchangeInterface, &msg, sizeof(InterfaceExchangeMessage*), "SKEE");
-		if (!msg.interfaceMap) {
-			g_status = "RaceMenu (skee64.dll) not found - Afterglow cannot draw overlays";
-			logger::error("{}", g_status);
+		if (msg.interfaceMap) {
+			auto*          ov = static_cast<IOverrideInterface*>(msg.interfaceMap->QueryInterface("Override"));
+			auto*          ol = static_cast<IOverlayInterface*>(msg.interfaceMap->QueryInterface("Overlay"));
+			const skee_u32 ovVer = ov ? ov->GetVersion() : 0;
+			const skee_u32 olVer = ol ? ol->GetVersion() : 0;
+			if (ov && ol && ovVer >= IOverrideInterface::kPluginVersion2) {
+				g_override = ov;
+				g_overlay = ol;
+				LoadSlots();
+				g_status = std::format("RaceMenu OK (override v{}, overlay v{}); slots body {} face {} hands {} feet {}", ovVer, olVer,
+					g_slots[0], g_slots[1], g_slots[2], g_slots[3]);
+				logger::info("{}", g_status);
+				return true;
+			}
+			// RaceMenu 0.4.16 (Skyrim 1.5.97): the interfaces skee64 hands out are not the 0.4.19 ones this plugin
+			// is written against, so they are never called. The NiOverride natives take over (ConnectLegacy).
+			logger::info("skee64 offers no Override interface v2 (override {} v{}, overlay {} v{}); will use its NiOverride natives after data load",
+				static_cast<void*>(ov), ovVer, static_cast<void*>(ol), olVer);
+		} else {
+			logger::info("skee64 did not answer the interface exchange; will try its NiOverride natives after data load");
+		}
+		g_status = "RaceMenu interface v2 not found - trying the RaceMenu 0.4.16 NiOverride natives after data load";
+		return false;
+	}
+
+	bool ConnectLegacy()
+	{
+		if (g_override) {
+			return true;
+		}
+		IOverrideInterface* ov = nullptr;
+		IOverlayInterface*  ol = nullptr;
+		if (!ConnectNatives(ov, ol)) {
+			g_status = "RaceMenu (skee64.dll) NiOverride natives unavailable - Afterglow cannot draw overlays (see Afterglow.log)";
 			return false;
 		}
-		g_override = static_cast<IOverrideInterface*>(msg.interfaceMap->QueryInterface("Override"));
-		g_overlay = static_cast<IOverlayInterface*>(msg.interfaceMap->QueryInterface("Overlay"));
-		if (!g_override || !g_overlay || g_override->GetVersion() < IOverrideInterface::kPluginVersion2) {
-			g_override = nullptr;
-			g_overlay = nullptr;
-			g_status = "RaceMenu is too old (needs the NiOverride interface v2, RaceMenu 0.4.19+)";
-			logger::error("{}", g_status);
-			return false;
-		}
-		g_slots[static_cast<std::size_t>(Area::Body)] = ReadIniInt("Overlays/Body", 6);
-		g_slots[static_cast<std::size_t>(Area::Hands)] = ReadIniInt("Overlays/Hands", 3);
-		g_slots[static_cast<std::size_t>(Area::Feet)] = ReadIniInt("Overlays/Feet", 3);
-		g_slots[static_cast<std::size_t>(Area::Face)] = ReadIniInt("Overlays/Face", 3);
-		g_status = std::format("RaceMenu OK (override v{}, overlay v{}); slots body {} face {} hands {} feet {}", g_override->GetVersion(),
-			g_overlay->GetVersion(), g_slots[0], g_slots[1], g_slots[2], g_slots[3]);
+		g_override = ov;
+		g_overlay = ol;
+		LoadSlots();
+		g_status = std::format("RaceMenu 0.4.16 NiOverride natives OK; slots body {} face {} hands {} feet {}", g_slots[0], g_slots[1], g_slots[2], g_slots[3]);
 		logger::info("{}", g_status);
 		return true;
 	}

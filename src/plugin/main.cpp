@@ -36,10 +36,16 @@ namespace
 			Menu::Register();
 			break;
 		case SKSE::MessagingInterface::kDataLoaded:
+			if (!Skee::Ready()) {
+				Skee::ConnectLegacy();
+			}
 			Manager::Start();
 			break;
 		case SKSE::MessagingInterface::kPostLoadGame:
 		case SKSE::MessagingInterface::kNewGame:
+			if (!Skee::Ready()) {
+				Skee::ConnectLegacy();
+			}
 			Body::ClearCache();
 			SexLabAlpha::Sync();
 			break;

@@ -6,6 +6,9 @@ namespace AG::Skee
 {
 	// RaceMenu (SKEE) interfaces, fetched once after all plugins loaded.
 	bool Init();
+	// RaceMenu before 0.4.19 (Skyrim SE 1.5.97, RaceMenu 0.4.16): call its NiOverride natives directly. Needs the
+	// Papyrus VM, so call it at kDataLoaded or later (and again after a game load while Ready() is still false).
+	bool ConnectLegacy();
 	bool Ready();
 	std::string_view Status();  // human readable, for the menu and the log
 
