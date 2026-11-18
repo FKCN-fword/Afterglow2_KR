@@ -6,7 +6,23 @@ on:
 
 jobs:
   build:
+    name: ${{ matrix.name }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The CommonLibSSE-NG head ships a prebuilt library that is only served for "all runtimes on"
+          # (SE + AE + VR in one DLL, which also runs on SE 1.5.97). Fast.
+          - name: all-runtimes (prebuilt CommonLib)
+            artifact: Afterglow-dll-all-runtimes
+            skyrim_vr: "y"
+            from_source: false
+          # The configuration the README asks for (--skyrim_vr=n): CommonLibSSE-NG is compiled from source. Slower.
+          - name: SE+AE (CommonLib from source)
+            artifact: Afterglow-dll-se-ae
+            skyrim_vr: "n"
+            from_source: true
     steps:
       # The CommonLibSSE-NG patch below is written with LF line endings; keep Windows runners from rewriting them.
       - name: Disable CRLF conversion
@@ -29,7 +45,22 @@ jobs:
           else
             echo "No Unk_8C in TESObjectREFR.h - this revision does not need commonlib-unk8c.patch"
           fi
-          grep -n -B2 -A2 "ResetInventory" include/RE/T/TESObjectREFR.h
+          echo "--- prebuilt library files in CommonLibSSE-NG/lib:"
+          ls -la lib 2>/dev/null || echo "(no lib folder)"
+          grep -n -i "prebuilt" xmake.lua | head -20 || true
+
+      # CommonLibSSE-NG's xmake.lua downloads a prebuilt library on CI when the checkout sits on an exact, clean release
+      # tag (see its PREBUILT.md). That library only exists for "all runtimes", so the SE+AE leg has to make it compile
+      # from source: no tags, and a modified tracked file (both are documented reasons for the source-build fallback).
+      - name: Make CommonLibSSE-NG compile from source
+        if: matrix.from_source
+        shell: bash
+        run: |
+          cd lib/CommonLibSSE-NG
+          git tag | xargs -r git tag -d > /dev/null
+          echo "" >> PREBUILT.md
+          git status --short | head
+          echo "tags left: $(git tag | wc -l)"
 
       - name: Get SKSE-Menu-Framework-3-API
         shell: bash
@@ -40,14 +71,16 @@ jobs:
           xmake-version: latest
 
       - name: Configure
-        run: xmake f -y -m releasedbg --skyrim_vr=n
+        env:
+          COMMONLIB_PREBUILT: ${{ matrix.from_source && '0' || '' }}
+        run: xmake f -y -m releasedbg --skyrim_vr=${{ matrix.skyrim_vr }}
 
       - name: Build
         run: xmake build -y -v Afterglow
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Afterglow-dll
+          name: ${{ matrix.artifact }}
           path: |
             build/windows/x64/releasedbg/Afterglow.dll
             build/windows/x64/releasedbg/Afterglow.pdb
