@@ -24,6 +24,7 @@ namespace AG
 		int   fallbackZone{ 0 };            // untagged scene, P+ found no type: 0 vaginal 1 anal 2 oral
 		std::vector<std::string> megaRaces; // race EditorIDs whose cum uses the m_ textures
 		bool  debugLog{ false };
+		bool  korean{ true };               // menu text language: 1 = Korean, 0 = English
 
 		static Settings& Get();
 		void Load();

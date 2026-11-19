@@ -103,6 +103,8 @@ namespace AG
 					megaRaces = SplitList(value);
 				} else if (key == "bDebugLog") {
 					debugLog = std::stoi(value) != 0;
+				} else if (key == "bKorean") {
+					korean = std::stoi(value) != 0;
 				} else {
 					for (std::size_t z = 0; z < kZoneCount; ++z) {
 						if (key == kZoneKeys[z]) {
@@ -134,6 +136,7 @@ namespace AG
 			opacity, glossiness, specular, dryHours, fadeSeconds, startSlot);
 		out << std::format("bMaleTargets = {}\nbFollowSexLabCleanup = {}\nbWashOnBathing = {}\n", int(maleTargets), int(followSexLabCleanup), int(washOnBathing));
 		out << std::format("bHideSexLabOverlays = {}\nfSexLabAlphaBefore = {:.2f}\niFallbackZone = {}\nbDebugLog = {}\n", int(hideSexLabOverlays), sexLabAlphaBefore, fallbackZone, int(debugLog));
+		out << std::format("bKorean = {}\n", int(korean));
 		out << "\n[Layers]\n";
 		for (std::size_t z = 0; z < kZoneCount; ++z) {
 			out << std::format("{} = {}\n", kZoneKeys[z], maxLayers[z]);
